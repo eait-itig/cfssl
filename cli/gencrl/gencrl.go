@@ -2,20 +2,23 @@
 package gencrl
 
 import (
-	"github.com/cloudflare/cfssl/cli"
-	"github.com/cloudflare/cfssl/crl"
 	"strings"
+
+	"github.com/cloudflare/cfssl/cli"
+	"github.com/cloudflare/cfssl/cli/sign"
+	"github.com/cloudflare/cfssl/crl"
+	"github.com/cloudflare/cfssl/helpers"
+	"github.com/cloudflare/cfssl/log"
+	"github.com/cloudflare/cfssl/signer/local"
 )
 
 var gencrlUsageText = `cfssl gencrl -- generate a new Certificate Revocation List
 
 Usage of gencrl:
-        cfssl gencrl INPUTFILE CERT KEY TIME
+        cfssl gencrl INPUTFILE TIME
 
 Arguments:
         INPUTFILE:               Text file with one serial number per line, use '-' for reading text from stdin
-        CERT:                    The certificate that is signing this CRL, use '-' for reading text from stdin
-        KEY:                     The private key of the certificate that is signing the CRL, use '-' for reading text from stdin
         TIME (OPTIONAL):         The desired expiration from now, in seconds
 
 Flags:
@@ -27,31 +30,30 @@ func gencrlMain(args []string, c cli.Config) (err error) {
 	if err != nil {
 		return
 	}
+	log.Debugf("read seriallist file %s", serialList)
 
 	serialListBytes, err := cli.ReadStdin(serialList)
 	if err != nil {
 		return
 	}
 
-	certFile, args, err := cli.PopFirstArgument(args)
+	certFile := c.CertFile
+	if certFile == "" {
+		certFile = c.CAFile
+	}
+	log.Debugf("read cert file %s", certFile)
+	certFileBytes, err := helpers.ReadBytes(certFile)
 	if err != nil {
 		return
 	}
 
-	certFileBytes, err := cli.ReadStdin(certFile)
-	if err != nil {
-		return
-	}
+	log.Debugf("generate signer")
 
-	keyFile, args, err := cli.PopFirstArgument(args)
+	key, err := sign.SignerFromConfig(c)
 	if err != nil {
 		return
 	}
-
-	keyBytes, err := cli.ReadStdin(keyFile)
-	if err != nil {
-		return
-	}
+	privk := key.(*local.Signer)
 
 	// Default value if no expiry time is given
 	timeString := string("0")
@@ -69,7 +71,7 @@ func gencrlMain(args []string, c cli.Config) (err error) {
 
 	}
 
-	req, err := crl.NewCRLFromFile(serialListBytes, certFileBytes, keyBytes, timeString)
+	req, err := crl.NewCRLFromFile(serialListBytes, certFileBytes, privk.GetCryptoSigner(), timeString)
 	if err != nil {
 		return
 	}

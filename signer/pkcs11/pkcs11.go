@@ -22,8 +22,8 @@ type Config struct {
 
 // New instantiates the pkcs11 signer
 func New(cert string, policy *config.Signing, conf *Config) (signer.Signer, error) {
+	log.Debugf("loading cert %s", cert)
 	cacertdata, err := helpers.ReadBytes(cert)
-
 	if err != nil {
 		return nil, errors.New("Unable to read CA Certificate")
 	}

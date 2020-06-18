@@ -19,6 +19,7 @@ import (
 	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/log"
 	ocspConfig "github.com/cloudflare/cfssl/ocsp/config"
+
 	// empty import of zlint/v2 required to have lints registered.
 	_ "github.com/zmap/zlint/v2"
 	"github.com/zmap/zlint/v2/lint"
@@ -466,12 +467,14 @@ func (p *Signing) NeedsLocalSigner() bool {
 // Usages parses the list of key uses in the profile, translating them
 // to a list of X.509 key usages and extended key usages.  The unknown
 // uses are collected into a slice that is also returned.
-func (p *SigningProfile) Usages() (ku x509.KeyUsage, eku []x509.ExtKeyUsage, unk []string) {
+func (p *SigningProfile) Usages() (ku x509.KeyUsage, eku []x509.ExtKeyUsage, exku []asn1.ObjectIdentifier, unk []string) {
 	for _, keyUse := range p.Usage {
 		if kuse, ok := KeyUsage[keyUse]; ok {
 			ku |= kuse
 		} else if ekuse, ok := ExtKeyUsage[keyUse]; ok {
 			eku = append(eku, ekuse)
+		} else if exkuse, ok := ExtraKeyUsage[keyUse]; ok {
+			exku = append(exku, exkuse)
 		} else {
 			unk = append(unk, keyUse)
 		}
@@ -530,7 +533,7 @@ func (p *SigningProfile) validProfile(isDefault bool) bool {
 			if len(p.Usage) == 0 {
 				log.Debugf("invalid local profile: no usages specified")
 				return false
-			} else if _, _, unk := p.Usages(); len(unk) == len(p.Usage) {
+			} else if _, _, _, unk := p.Usages(); len(unk) == len(p.Usage) {
 				log.Debugf("invalid local profile: no valid usages")
 				return false
 			}
@@ -665,6 +668,10 @@ var ExtKeyUsage = map[string]x509.ExtKeyUsage{
 	"ocsp signing":     x509.ExtKeyUsageOCSPSigning,
 	"microsoft sgc":    x509.ExtKeyUsageMicrosoftServerGatedCrypto,
 	"netscape sgc":     x509.ExtKeyUsageNetscapeServerGatedCrypto,
+}
+
+var ExtraKeyUsage = map[string]asn1.ObjectIdentifier{
+	"smartcard auth": asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 20, 2, 2},
 }
 
 // An AuthKey contains an entry for a key used for authentication.

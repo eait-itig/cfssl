@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math/big"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -19,7 +18,7 @@ import (
 
 // NewCRLFromFile takes in a list of serial numbers, one per line, as well as the issuing certificate
 // of the CRL, and the private key. This function is then used to parse the list and generate a CRL
-func NewCRLFromFile(serialList, issuerFile, keyFile []byte, expiryTime string) ([]byte, error) {
+func NewCRLFromFile(serialList, issuerFile []byte, key crypto.Signer, expiryTime string) ([]byte, error) {
 
 	var revokedCerts []pkix.RevokedCertificate
 	var oneWeek = time.Duration(604800) * time.Second
@@ -56,19 +55,6 @@ func NewCRLFromFile(serialList, issuerFile, keyFile []byte, expiryTime string) (
 			RevocationTime: time.Now(),
 		}
 		revokedCerts = append(revokedCerts, tempCert)
-	}
-
-	strPassword := os.Getenv("CFSSL_CA_PK_PASSWORD")
-	password := []byte(strPassword)
-	if strPassword == "" {
-		password = nil
-	}
-
-	// Parse the key given
-	key, err := helpers.ParsePrivateKeyPEMWithPassword(keyFile, password)
-	if err != nil {
-		log.Debugf("Malformed private key %v", err)
-		return nil, err
 	}
 
 	return CreateGenericCRL(revokedCerts, key, issuerCert, newExpiryTime)

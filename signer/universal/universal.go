@@ -49,6 +49,9 @@ func fileBackedSigner(root *Root, policy *config.Signing) (signer.Signer, bool, 
 
 func pkcs11Signer(root *Root, policy *config.Signing) (signer.Signer, bool, error) {
 	cert := root.Config["cert-file"]
+	if cert == "" {
+		cert = root.Config["cert"]
+	}
 	module := root.Config["pkcs11-module"]
 	pin := root.Config["pkcs11-pin"]
 	token := root.Config["pkcs11-token"]

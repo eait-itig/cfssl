@@ -193,8 +193,8 @@ func ParseCertificateRequest(s Signer, p *config.SigningProfile, csrBytes []byte
 		IPAddresses:        csrv.IPAddresses,
 		EmailAddresses:     csrv.EmailAddresses,
 		URIs:               csrv.URIs,
-		Extensions:			csrv.Extensions,
-		ExtraExtensions:	[]pkix.Extension{},
+		Extensions:         csrv.Extensions,
+		ExtraExtensions:    []pkix.Extension{},
 	}
 
 	for _, val := range csrv.Extensions {
@@ -216,7 +216,7 @@ func ParseCertificateRequest(s Signer, p *config.SigningProfile, csrBytes []byte
 			template.MaxPathLenZero = template.MaxPathLen == 0
 		} else {
 			// If the profile has 'copy_extensions' to true then lets add it
-			if (p.CopyExtensions) {
+			if p.CopyExtensions {
 				template.ExtraExtensions = append(template.ExtraExtensions, val)
 			}
 		}
@@ -262,6 +262,7 @@ func FillTemplate(template *x509.Certificate, defaultProfile, profile *config.Si
 
 	var (
 		eku             []x509.ExtKeyUsage
+		exku            []asn1.ObjectIdentifier
 		ku              x509.KeyUsage
 		backdate        time.Duration
 		expiry          time.Duration
@@ -272,7 +273,7 @@ func FillTemplate(template *x509.Certificate, defaultProfile, profile *config.Si
 	// The third value returned from Usages is a list of unknown key usages.
 	// This should be used when validating the profile at load, and isn't used
 	// here.
-	ku, eku, _ = profile.Usages()
+	ku, eku, exku, _ = profile.Usages()
 	if profile.IssuerURL == nil {
 		issuerURL = defaultProfile.IssuerURL
 	}
@@ -319,6 +320,7 @@ func FillTemplate(template *x509.Certificate, defaultProfile, profile *config.Si
 	template.NotAfter = notAfter
 	template.KeyUsage = ku
 	template.ExtKeyUsage = eku
+	template.UnknownExtKeyUsage = exku
 	template.BasicConstraintsValid = true
 	template.IsCA = profile.CAConstraint.IsCA
 	if template.IsCA {

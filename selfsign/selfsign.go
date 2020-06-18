@@ -89,6 +89,7 @@ func Sign(priv crypto.Signer, csrPEM []byte, profile *config.SigningProfile) ([]
 
 	var (
 		eku             []x509.ExtKeyUsage
+		exku            []asn1.ObjectIdentifier
 		ku              x509.KeyUsage
 		expiry          time.Duration
 		crlURL, ocspURL string
@@ -97,10 +98,10 @@ func Sign(priv crypto.Signer, csrPEM []byte, profile *config.SigningProfile) ([]
 	// The third value returned from Usages is a list of unknown key usages.
 	// This should be used when validating the profile at load, and isn't used
 	// here.
-	ku, eku, _ = profile.Usages()
+	ku, eku, exku, _ = profile.Usages()
 	expiry = profile.Expiry
 
-	if ku == 0 && len(eku) == 0 {
+	if ku == 0 && len(eku) == 0 && len(exku) == 0 {
 		err = cferr.New(cferr.PolicyError, cferr.NoKeyUsages)
 		return nil, err
 	}
@@ -121,6 +122,7 @@ func Sign(priv crypto.Signer, csrPEM []byte, profile *config.SigningProfile) ([]
 	template.NotAfter = now.Add(expiry).UTC()
 	template.KeyUsage = ku
 	template.ExtKeyUsage = eku
+	template.UnknownExtKeyUsage = exku
 	template.BasicConstraintsValid = true
 	template.IsCA = profile.CAConstraint.IsCA
 	template.SubjectKeyId = pubhash.Sum(nil)

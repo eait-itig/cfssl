@@ -6,9 +6,11 @@ import (
 	"errors"
 
 	"github.com/cloudflare/cfssl/cli"
+	"github.com/cloudflare/cfssl/cli/sign"
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/helpers"
 	"github.com/cloudflare/cfssl/signer"
+	"github.com/cloudflare/cfssl/signer/local"
 )
 
 var gencsrUsageText = `cfssl gencsr -- generate a csr from a private key with existing CSR json specification or certificate
@@ -26,24 +28,17 @@ Flags:
 var gencsrFlags = []string{"key", "cert"}
 
 func gencsrMain(args []string, c cli.Config) (err error) {
-	if c.KeyFile == "" {
-		return errors.New("private key file is required through '-key', please check with usage")
-	}
-
-	keyBytes, err := helpers.ReadBytes(c.KeyFile)
+	key, err := sign.SignerFromConfig(c)
 	if err != nil {
-		return err
-	}
-
-	key, err := helpers.ParsePrivateKeyPEM(keyBytes)
-	if err != nil {
-		return err
+		return
 	}
 
 	// prepare a stub CertificateRequest
 	req := &csr.CertificateRequest{
 		KeyRequest: csr.NewKeyRequest(),
 	}
+
+	privk := key.(*local.Signer)
 
 	if c.CertFile != "" {
 		if len(args) > 0 {
@@ -86,12 +81,12 @@ func gencsrMain(args []string, c cli.Config) (err error) {
 		req.Hosts = signer.SplitHosts(c.Hostname)
 	}
 
-	csrBytes, err := csr.Generate(key, req)
+	csrBytes, err := csr.Generate(privk.GetCryptoSigner(), req)
 	if err != nil {
 		return err
 	}
 
-	cli.PrintCert(keyBytes, csrBytes, nil)
+	cli.PrintCert(nil, csrBytes, nil)
 	return nil
 }
 
